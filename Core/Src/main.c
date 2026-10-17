@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "CLCD_I2C.h"
 #include "RC522.h"
+#include "keypad.h"
 #include "string.h"
 #include "stdio.h"
 #include "stdbool.h"
@@ -77,6 +78,8 @@ typedef enum
 I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
+
+TIM_HandleTypeDef htim2;
 
 TIM_HandleTypeDef htim3;
 
@@ -141,12 +144,11 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void Password_SaveFlash(void);
 void Password_LoadFlash(void);
-
-char Keypad_Scan(void);
 
 void HandleKey(char key);
 
@@ -171,85 +173,6 @@ void CheckSystemTimers(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-char Keypad_Scan(void)
-{
-    const char keymap[4][4] =
-    {
-        {'*','0','#','A'},
-        {'7','8','9','B'},
-        {'4','5','6','C'},
-        {'1','2','3','D'}
-    };
-
-    GPIO_TypeDef *colPort[4] =
-    {
-        GPIOA,
-        GPIOB,
-        GPIOB,
-        GPIOB
-    };
-  uint16_t colPin[4] =
-    {
-        GPIO_PIN_8,
-        GPIO_PIN_15,
-        GPIO_PIN_14,
-        GPIO_PIN_13
-    };
-
-    GPIO_TypeDef *rowPort[4] =
-    {
-        GPIOA,
-        GPIOA,
-        GPIOA,
-        GPIOA
-    };
-
-    uint16_t rowPin[4] =
-    {
-        GPIO_PIN_12,
-        GPIO_PIN_11,
-        GPIO_PIN_10,
-        GPIO_PIN_9
-    };
-
-    for (int c = 0; c < 4; c++)
-    {
-        HAL_GPIO_WritePin(
-            GPIOA,
-            GPIO_PIN_8,
-            GPIO_PIN_SET
-        );
-
-        HAL_GPIO_WritePin(
-            GPIOB,
-            GPIO_PIN_13 |
-            GPIO_PIN_14 |
-            GPIO_PIN_15,
-            GPIO_PIN_SET
-        );
-
-        HAL_GPIO_WritePin(
-            colPort[c],
-            colPin[c],
-            GPIO_PIN_RESET
-        );
-
-        for (volatile int i = 0; i < 200; i++);
-
-        for (int r = 0; r < 4; r++)
-        {
-            if (HAL_GPIO_ReadPin(
-                    rowPort[r],
-                    rowPin[r])
-                == GPIO_PIN_RESET)
-            {
-                return keymap[r][c];
-            }
-        }
-    }
-
-    return 0;
-}
 bool RFID_IsAdmin(uint8_t *uid)
 {
     for (uint8_t i = 0; i < UID_LEN; i++)
@@ -812,6 +735,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   /* LCD */
@@ -848,37 +772,35 @@ int main(void)
 
   LCD_ShowInput("Nhap mat khau");
 
+  if (Keypad_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char key = Keypad_Scan();
+    KeypadEvent keyEvent;
+    while (Keypad_GetEvent(&keyEvent))
+    {
+      if (keyEvent.type == KEYPAD_EVENT_PRESSED)
+      {
+        HandleKey(keyEvent.key);
+      }
+    }
 
-	     if (key != 0)
-	     {
-	         HandleKey(key);
-
-	         /* Cho nha phim */
-	         while (Keypad_Scan() != 0)
-	         {
-	             HAL_Delay(10);
-	         }
-
-	         HAL_Delay(20);
-	     }
-
-
-	     /* RFID chi hoat dong o man hinh Login */
-	     if (app_state == ST_LOGIN)
-	     {
-	         RFID_Process();
-	     }
+    /* RFID chi hoat dong o man hinh Login */
+    if (app_state == ST_LOGIN)
+    {
+      RFID_Process();
+    }
 
 
-	     /* Kiem tra servo, khoa 30s, buzzer */
-	     CheckSystemTimers();
+    /* Kiem tra servo, khoa 30s, buzzer */
+    CheckSystemTimers();
 
     /* USER CODE END WHILE */
 
@@ -999,6 +921,31 @@ static void MX_SPI1_Init(void)
 
   /* USER CODE END SPI1_Init 2 */
 
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  */
+static void MX_TIM2_Init(void)
+{
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 7199;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 99;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
@@ -1124,6 +1071,10 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  Keypad_OnTimerElapsed(htim);
+}
 
 /* USER CODE END 4 */
 
