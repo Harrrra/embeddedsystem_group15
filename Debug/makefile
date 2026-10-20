@@ -6,6 +6,7 @@
 -include ../makefile.init
 
 RM := rm -rf
+.DEFAULT_GOAL := all
 
 # All of the sources participating in the build are defined here
 -include sources.mk
@@ -60,13 +61,13 @@ all: main-build
 main-build: BTCuoiKy.elf secondary-outputs
 
 # Tool invocations
-BTCuoiKy.elf BTCuoiKy.map: $(OBJS) $(USER_OBJS) D:\STM32Cube\STM32MX_Project\BTCuoiKy\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "BTCuoiKy.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\STM32Cube\STM32MX_Project\BTCuoiKy\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BTCuoiKy.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+BTCuoiKy.elf BTCuoiKy.map: $(OBJS) $(USER_OBJS) ../STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "BTCuoiKy.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"../STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="BTCuoiKy.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-size  $(EXECUTABLES)
+	arm-none-eabi-size  $(EXECUTABLES) > "default.size.stdout"
 	@echo 'Finished building: $@'
 	@echo ' '
 
