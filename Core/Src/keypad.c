@@ -1,18 +1,23 @@
 #include "keypad.h"
+#include "main.h"
 #include <stddef.h>
 
 #define DEBOUNCE_SAMPLES  3U
 #define HOLD_TICKS        80U
 #define EVENT_QUEUE_SIZE  8U
 
-static GPIO_TypeDef *const colPort[4] = {GPIOA, GPIOB, GPIOB, GPIOB};
+static GPIO_TypeDef *const colPort[4] = {
+    KP_C1_GPIO_Port, KP_C2_GPIO_Port, KP_C3_GPIO_Port, KP_C4_GPIO_Port
+};
 static const uint16_t colPin[4] = {
-    GPIO_PIN_8, GPIO_PIN_13, GPIO_PIN_14, GPIO_PIN_15
+    KP_C1_Pin, KP_C2_Pin, KP_C3_Pin, KP_C4_Pin
 };
 
-static GPIO_TypeDef *const rowPort[4] = {GPIOA, GPIOA, GPIOA, GPIOA};
+static GPIO_TypeDef *const rowPort[4] = {
+    KP_R1_GPIO_Port, KP_R2_GPIO_Port, KP_R3_GPIO_Port, KP_R4_GPIO_Port
+};
 static const uint16_t rowPin[4] = {
-    GPIO_PIN_12, GPIO_PIN_11, GPIO_PIN_10, GPIO_PIN_9
+    KP_R1_Pin, KP_R2_Pin, KP_R3_Pin, KP_R4_Pin
 };
 
 static const char keymap[4][4] = {
@@ -68,6 +73,11 @@ static char Keypad_ReadRaw(void)
                 return keymap[r][c];
             }
         }
+    }
+
+    for (uint8_t i = 0; i < 4U; i++)
+    {
+        HAL_GPIO_WritePin(colPort[i], colPin[i], GPIO_PIN_SET);
     }
 
     return '\0';
